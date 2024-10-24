@@ -1,0 +1,54 @@
+name: CI
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+
+  generate-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get install lua5.3 lua-socket weasyprint discount vim
+          sudo apt-get purge weasyprint
+
+      - name: Build
+        run: |
+          chmod u+x ./do_all.lua
+          PATH="./:$PATH" PYTHONPATH="./WeasyPrint-60.2:./pydyf-0.8.0:$PYTHONPATH" ./do_all.lua
+
+      - name: Store artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "OUTs" #destination
+          path: | #source
+            ./build/*.pdf
+            ./build/*.html
+
+  release:
+    if: github.event_name == 'push'
+    needs: [generate-pdf]
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: OUTs #source
+          path: release #destination
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: Automatic Release (${{ github.event.head_commit.timestamp }})
+          tag_name: release.${{ github.sha }}
+          files: release/*
+

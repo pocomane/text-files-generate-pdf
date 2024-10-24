@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+    <title>Example</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type="text/css">
+    
+      @{include"common.css"}
+
+      :root {
+        --FS:  2.8mm; /* default font size */
+        --LH:  3.5mm; /* default line height */
+      }
+
+      @page {
+        size: A5 landscape;
+        margin-left: 20mm;
+        margin-right: 20mm;
+        margin-bottom: 17mm;
+        margin-top: 12mm;
+      }
+      body {
+        font-family: thefont;
+        column-count: 2;
+        column-fill: balance;
+        font-size: var(--FS);
+        line-height: var(--LH);
+        text-align: justify;
+      }
+      p {
+        margin-top: 4pt;
+        margin-bottom: 4pt;
+      }
+      ul {
+        margin-top: 4pt;
+        margin-bottom: 4pt;
+      }
+      li::marker {
+          content: '▶ ';
+      }
+      em {
+        font-weight: normal;
+        text-transform: uppercase;
+        font-size: var(--FS);
+        border: 1pt;
+        border-left: 2pt;
+        border-right: 2pt;
+      }
+      strong {
+        font-weight: normal;
+        text-transform: uppercase;
+        font-size: var(--FS);
+        background-color: #000000;
+        color: #ffffff;
+        border: 1pt solid #000000;
+        border-left: 2pt solid #000000;
+        border-right: 2pt solid #000000;
+      }
+      h1 {
+        text-align: center;
+        text-transform: uppercase;
+        font-size: var(--FS);
+        background-color: #000000;
+        color: #ffffff;
+        border: 4pt solid #000000;
+        border-bottom: 2pt solid #000000;
+      }
+      h2 {
+        text-align: center;
+        text-transform: uppercase;
+        font-size: var(--FS);
+      }
+      h3 {
+        text-transform: uppercase;
+        font-size: var(--FS);
+      }
+      .example {
+        font-size: var(--FS);
+        border: 1pt solid;
+        padding: 4pt 4pt 4pt 4pt;
+        margin: 0pt 0pt 6pt 0pt;
+        text-indent:6pt;
+      }
+      .example p {
+        margin-bottom: 2pt;
+        margin-top: 2pt;
+      }
+    </style>    
+</head>
+<body>
+  <div>
+
+@{generate_html()}
+
+  </div>
+</body>
+</html>
