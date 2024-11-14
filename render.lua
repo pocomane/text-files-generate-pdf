@@ -1,5 +1,204 @@
 #!/usr/bin/lua5.4
 
+-----------------------------------------------------------------------------------
+-- luasnip-templua
+
+local setmetatable, load = setmetatable, load
+local fmt, tostring = string.format, tostring
+local error = error
+
+local function templua( template ) --> ( sandbox ) --> expstr, err
+   local function expr(e) return ' out('..e..')' end
+
+   -- TODO : use {} instead of <>
+
+   -- Generate a script that expands the template
+   local script, position, max = '', 1, #template
+   while position <= max do -- TODO : why '(.-)@(%b<>)([^@]*)' is so much slower? The loop is needed to avoid a simpler gsub on that pattern!
+     local start, finish = template:find('@%b<>', position)
+     if not start then
+       script = script .. expr( fmt( '%q', template:sub(position, max) ) )
+       position = max + 1
+     else
+       if start > position then
+         script = script .. expr( fmt( '%q', template:sub(position, start-1) ) )
+       end
+       if template:match( '^@<<.*>>$', start ) then
+          script = script .. template:sub( start+3, finish-2 )
+       else
+          script = script .. expr( template:sub( start+2, finish-1 ) )
+       end
+       position = finish + 1
+     end
+   end
+
+   -- Utility to append the script to the error string
+   local function report_error( err )
+     return nil, err..'\nTemplate script: [[\n'..script..'\n]]'
+   end
+
+   -- Special case when no template tag is found
+   if script == template then
+     return function() return script end
+   end
+
+   -- Compile the template expander in a empty environment
+   local env = {}
+   script = 'local out = _ENV.out; local _ENV = _ENV.env; ' .. script
+   local generate, err = load( script, 'templua_script', 't', env )
+   if err ~= nil then return report_error( err ) end
+
+   -- Return a function that runs the expander with a custom environment
+   return function( sandbox )
+
+     -- Template environment and utility function
+     local expstr = ''
+     env.env = sandbox
+     env.out = function( out ) expstr = expstr..tostring(out) end
+
+     -- Run the template
+     local ok, err = pcall(generate)
+     if not ok then return report_error( err ) end
+     return expstr
+  end
+end
+
+-----------------------------------------------------------------------------------
+-- pseudo-markdown
+
+local next_class = nil
+local function set_class(c) next_class = c end
+local function get_class(c)
+	if not next_class then return "" end
+	local result = ' class="'..next_class..'"'
+	next_class = nil -- next_class = "base"
+	return result
+end
+get_class()
+
+local demarkdown_block
+local demarkdown
+
+function demarkdown_block(s)
+
+	local done = false
+	local function first_or_skip_sub(str, pat, sub)
+	  if done then return str end
+	  local result = str:gsub(pat, sub)
+	  if not result then result = str end
+	  if result ~= str then done = true end
+	  return result
+	end
+
+	  s = s:gsub('^ *', '')
+	  if s == "" then return "" end
+
+	  -- links
+	  s = s:gsub('%[([^]]*)%]%(([^)]*)%)[^\n]*', function(a, b)
+		  if a == "" or b == "" then
+			  -- If one is missin, it will be parsed as "class extension"
+			  return nil
+		  end
+		  return '<a href="'..b..'">'..a..'</a>'
+	  end)
+
+	  -- class extension
+	  s = first_or_skip_sub(s, '^%[([^]]*)%]%(([^)]*)%)[^\n]*\n?(.*)', function(a, b, c)
+		  if not a or a == "" then a = b end
+		  set_class(a)
+		  if #c < 1 then return ""
+		  else return demarkdown_block(c)
+		  end
+	  end)
+
+	   -- headers
+	  s = first_or_skip_sub(s, '^(##*) *(.*)', function(a, b)
+		   return '\n<h'..#a..'>'..b..'</h'..#a..'>'
+	  end)
+
+	  -- code block
+	  s = first_or_skip_sub(s, '^~~*[^\n]*\n(.*)\n~~*$', function(a)
+       local class = get_class()
+       if class == "" then class = ' class="example"' end
+		   return '<div'..class..'>'..demarkdown(a)..'</div>'
+       -- -- TODO : change to:
+		   -- return '<code'..get_class()..'>'..a..'</code>'
+	  end)
+
+	  -- list
+	  s = first_or_skip_sub(s, '^%-.*', function(a)
+      a = a:gsub("^[ ]*%-[ ]*","<li>")
+      a = a:gsub("\n[ ]*%-[ ]*","</li>\n<li>")
+      a = a .. '</li>'
+		  return "<ul"..get_class()..">\n"..a.."</ul>"
+	  end)
+
+	  -- table
+	  s = first_or_skip_sub(s, '^|[^\n]*|[^\n]*\n|[^\n]*%-[^\n]*\n(.*)', function(a)
+		   a = a:gsub('\n|', '\n')
+		   a = a:gsub('|[ ]*\n', '\n')
+		   a = a:gsub('^|', '<tr><td>')
+		   a = a:gsub('|', '</td><td>')
+		   a = a:gsub('\n', '</td></tr>\n<tr><td>')
+		   a = '<table'..get_class()..'>\n'..a..'</td></tr>\n</table>'
+		   return a
+	  end)
+
+	  -- default block
+	  s = first_or_skip_sub(s, '(.*)', function(a)
+		  return '<p'..get_class()..'>'..a..'</p>'
+	  end)
+
+	  return s .. '\n\n'
+end
+
+function demarkdown(str)
+
+	-- clean up / normalize whitespaces to simplify further processing
+	str = str:gsub('\r\n','\n')
+	str = str:gsub('\r','\n')
+	str = str:gsub('^\n*','')
+	str = str:gsub('\n*$','')
+	str = str:gsub('\t','  ')
+	str = str:gsub(' *\n','\n')
+	str = str:gsub('\n\n\n*','\n\n\n\n')
+	str = '\n\n'..str..'\n\n'
+
+	-- parse text block by block
+	local pieces = {}
+	local maxpos = #str
+	local position = 1
+	while position < maxpos do
+		--print(">>>>>>>>>> ---------------------------------------------------------")
+		--print(">>>>>>>>>> first part of processing block ["..str:sub(position,position+10).."] at", s)
+		local s, e = str:find('\n\n.-\n\n', position)
+		if not s then break end
+		local start_fence, ee = str:find('\n~~~~*\n', position)
+		--print(">>>>>>>>>> start fence", start_fence, ee)
+		if start_fence and start_fence <= e then
+		  local has_terminal_fence, end_fence = str:find('\n~~~~*\n\n', ee + 1)
+		  --print(">>>>>>>>>> end fence", has_terminal_fence, end_fence)
+		  if has_terminal_fence then
+			  e = end_fence
+		  end
+		end
+		position = e + 1
+		s = s + 2
+		e = e - 2
+		--print(">>>>>>>>>> final processing block ["..str:sub(s,e).."] at", s)
+		--print(">>>>>>>>>> ---------------------------------------------------------")
+		local block = str:sub(s, e)
+		if #block > 0 then
+			pieces[1+#pieces] = demarkdown_block(block)
+		end
+	end
+
+	return table.concat(pieces)
+end
+
+-----------------------------------------------------------------------------------
+-- render
+
 local CACHEDIR = "./cache/"
 local BUILDDIR = ""
 local SCRIPTDIR = arg[0]:gsub('[^/]*$', '')
@@ -90,15 +289,8 @@ end
 
 local function render(wrk, content, template)
 
-  exec("rm -f '"..BUILDDIR.."tmp.md'")
-  local t, e = io.open(BUILDDIR.."tmp.md", 'w')
-  if e then error(e) end
-  t:write(content,'\n')
-  t:close()
-  local t, err = io.popen("markdown -f footnotes -f fencedcode '"..BUILDDIR.."tmp.md'")
-  if e then error(e) end
-  content = t:read('a')
-  t:close()
+  content = demarkdown(content)
+
   template = template:gsub('@{include"([^"]*)"}', function(...) return get_content(wrk, ...) end)
   content = content:gsub('%%', '%%%%')
   content = template:gsub("@{generate_html%(%)}", content)
@@ -212,7 +404,7 @@ local function inject_section_decoration(wrk, x)
     if not pre then
       pre = ""
     end
-    return pre..y..z
+    return '\n\n'..pre..'\n\n'..y..z
   end)
   return x
 end
@@ -261,6 +453,8 @@ local function make_single_html(wrk, opt, dst)
     local template = get_content(wrk, mode)
 
     log('- preprocessing md')
+
+    content = templua(content){} -- TODO : remove the rest of processing, all should be done in templua
 
     content = content:gsub('\r','')
     content = remove_todo(content)
