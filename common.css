@@ -5,7 +5,7 @@
 
 @font-face {
   font-family: "thefont";
-  src: url(@{get_snippet(font)}) format("truetype");
+  src: url(@{font}) format("truetype");
 }
 
 ul {
