@@ -327,35 +327,6 @@ end
 -----------------------------------------------------------------------------------
 -- pdfize
 
-local function make_deps()
-  local function store_file(filename, content)
-    local f, e = io.open(filename, 'wb')
-    if e then error(e) end
-    if content then f:write(content)end
-    f:close()
-  end
-  exec("mkdir -p '"..CACHEDIR.."'")
-  if not load_file(CACHEDIR.."weasyprint.done") then
-    exec("cd '"..CACHEDIR.."' && curl -o dw.zip https://codeload.github.com/Kozea/WeasyPrint/zip/refs/tags/v60.2")
-    exec("cd '"..CACHEDIR.."' && unzip dw.zip")
-    exec("cd '"..CACHEDIR.."' && rm dw.zip")
-    store_file(CACHEDIR..'weasyprint.done')
-  end
-  if not load_file(CACHEDIR.."pydyf.done") then
-    exec("cd '"..CACHEDIR.."' && curl -o dw.zip https://codeload.github.com/CourtBouillon/pydyf/zip/refs/tags/v0.8.0")
-    exec("cd '"..CACHEDIR.."' && unzip dw.zip")
-    exec("cd '"..CACHEDIR.."' && rm dw.zip")
-    store_file(CACHEDIR..'pydyf.done')
-  end
-  if not load_file(CACHEDIR.."weasyprint") then
-    store_file(CACHEDIR..'weasyprint', [[#!/bin/sh
-      export PYTHONPATH="]]..CACHEDIR..[[WeasyPrint-60.2:]]..CACHEDIR..[[pydyf-0.8.0:$PYTHONPATH"
-      python3 -m weasyprint $@
-    ]])
-    exec("chmod ugo+x '"..CACHEDIR.."weasyprint'")
-  end
-end
-
 local function make_pdfs(wrk, dst)
   exec("mkdir -p '"..BUILDDIR.."'")
   log('-----------------')
@@ -368,15 +339,10 @@ local function make_pdfs(wrk, dst)
   if e then error(e) end
   f:write(x)
   f:close()
-  log('- generating pdf')
-  local pdfout = BUILDDIR..basename..'.pdf'
-  exec(CACHEDIR.."weasyprint '"..htmlout.."' '"..pdfout.."'")
-  log('- done')
-  --exec("cd '"..BUILDDIR.."' && pdfjam --landscape --signature 1 "..dst..'.pdf')
 end
 
 local function main(arg)
-  make_deps()
+  io.write("Working in folder ") io.flush()
   exec("pwd")
   local wrk = {output={},file_cache={}}
   for k = 1, #arg do
