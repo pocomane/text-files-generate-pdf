@@ -13,7 +13,7 @@ local setmetatable, load = setmetatable, load
 local fmt, tostring = string.format, tostring
 local error = error
 
-local function templua( template ) --> ( sandbox ) --> expstr, err
+local function templua( template, transform ) --> ( sandbox ) --> expstr, err
    local function expr(e) return ' out('..e..')' end
 
    -- Generate a script that expands the template
@@ -47,46 +47,28 @@ local function templua( template ) --> ( sandbox ) --> expstr, err
    end
 
    -- Compile the template expander in a empty environment
-   local env = {}
-   script = 'local _ENV, out, clear, transform = _ENV.extract(); ' .. script
-   local generate, err = load( script, 'templua_script', 't', env )
+   script = 'local _ENV, out = _ENV(); ' .. script
+   local env, outfunc -- set into the returned function
+   local function envget() return env, outfunc end
+   local generate, err = load( script, 'templua_script', 't', envget)
    if err ~= nil then return report_error( err ) end
 
    -- Return a function that runs the expander with a custom environment
    return function( sandbox )
+     local result = {}
 
-     -- Transformations handling
-     local pipeline = {}
-     local clear = function() pipeline = {} end
-     local transform = function( a, b ) pipeline[1+#pipeline] = {a,b} end
-     local apply_transform = function( str )
-       for _, t in ipairs(pipeline) do
-         --if str ~= "" then
-           -- Apply tranform only on non-empty strings. Transform can be used
-           -- just to add suffix/postfix decorations: without this check it
-           -- could be triggered by the empty string between tags.
-           -- TODO : remove ? it can be emulated with subst function, and actually
-           -- pure prepend/postpend without pre-matching is rare (and can be
-           -- done witout tranformation)
-           str = str:gsub( t[1], t[2] )
-         --end
-       end
-       return str
+     -- Template environment and output generation
+     env = sandbox
+     if not transform then
+       outfunc = function( out ) result[1+#result] = tostring( out ) end
+     else
+       outfunc = function( out ) result[1+#result] = transform( tostring( out )) end
      end
-
-     -- Template output generation
-     local expstr = ''
-     local function out( out )
-       expstr = expstr..apply_transform( tostring( out ))
-     end
-
-     -- Template environment and utility function
-     env.extract = function() return sandbox, out, clear, transform end
 
      -- Run the template
      local ok, err = pcall(generate)
      if not ok then return report_error( err ) end
-     return expstr
+     return table.concat(result)
   end
 end
 
@@ -293,20 +275,39 @@ local function add_front_page(wrk, x)
          .. x
 end
 
-local function expand_content(wrk, src, env)
+local function expand_content(wrk, src, env, apply_transform)
+  if env == nil then
+    local pipeline = {}
+    env = {
+      log = log,
+      include = function(src, pat) return expand_content(wrk, src, env, apply_transform) end,
+      mdtohtml = function(src) return demarkdown(src) end,
+      date = os.date('!%Y-%m-%d %H:%M:%SZ'),
+      clear = function() pipeline = {} end,
+      transform = function( a, b ) pipeline[1+#pipeline] = {a,b} end,
+      done = function() pipeline[#pipeline] = nil end,
+    }
+    apply_transform = function( str )
+      for k = #pipeline, 1, -1 do
+        --if str ~= "" then
+          -- Apply tranform only on non-empty strings. Transform can be used
+          -- just to add suffix/postfix decorations: without this check it
+          -- could be triggered by the empty string between tags.
+          -- TODO : remove ? it can be emulated with subst function, and actually
+          -- pure prepend/postpend without pre-matching is rare (and can be
+          -- done witout tranformation)
+          local t = pipeline[k]
+          str = str:gsub( t[1], t[2] )
+        --end
+      end
+      return str
+    end
+  end
   local content = get_content(wrk, src)
-  local generate, err = templua(content)
+  local generate, err = templua(content, apply_transform)
   if err ~= nil then
     log('ERROR - while compiling template '..src..': '..err)
     return content
-  end
-  if env == nil then
-    env = {
-      log = log,
-      include = function(src, pat) return expand_content(wrk, src, env) end,
-      mdtohtml = function(src) return demarkdown(src) end,
-      date = os.date('!%Y-%m-%d %H:%M:%SZ'),
-    }
   end
   local expanded, err = generate(env)
   if err ~= nil then
