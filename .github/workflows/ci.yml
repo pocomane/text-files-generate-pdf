@@ -21,7 +21,7 @@ jobs:
 
       - name: Build
         run: |
-          PATH="./:$PATH" PYTHONPATH="./WeasyPrint-60.2:./pydyf-0.8.0:$PYTHONPATH" lua ./render.lua ./desc.lua
+          PATH="./:$PATH" PYTHONPATH="./WeasyPrint-60.2:./pydyf-0.8.0:$PYTHONPATH" lua ./render.lua ./hello_world.tmpl
 
       - name: Store artifact
         uses: actions/upload-artifact@v3
