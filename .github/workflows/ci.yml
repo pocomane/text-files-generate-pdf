@@ -16,12 +16,12 @@ jobs:
 
       - name: Install Build Dependencies
         run: |
-          sudo apt-get install lua5.3 lua-socket weasyprint discount vim
+          sudo apt-get install lua5.3 weasyprint
           sudo apt-get purge weasyprint
 
       - name: Build
         run: |
-          PATH="./:$PATH" PYTHONPATH="./WeasyPrint-60.2:./pydyf-0.8.0:$PYTHONPATH" lua ./render.lua ./hello_world.tmpl
+          PATH="./:$PATH" PYTHONPATH="./WeasyPrint-60.2:./pydyf-0.8.0:$PYTHONPATH" lua ./make.lua
 
       - name: Store artifact
         uses: actions/upload-artifact@v3
