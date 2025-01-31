@@ -278,14 +278,38 @@ end
 local function expand_content(wrk, src, env, apply_transform)
   if env == nil then
     local pipeline = {}
+    local function transform( a, b )
+      pipeline[1+#pipeline] = {a,b}
+    end
     env = {
       log = log,
       include = function(src, pat) return expand_content(wrk, src, env, apply_transform) end,
       mdtohtml = function(src) return demarkdown(src) end,
       date = os.date('!%Y-%m-%d %H:%M:%SZ'),
       clear = function() pipeline = {} end,
-      transform = function( a, b ) pipeline[1+#pipeline] = {a,b} end,
+      transform = transform,
       done = function() pipeline[#pipeline] = nil end,
+
+      acii_accented_vowel_for_italian = function() transform(".%f[%A]'", {
+        --
+        ["a'"] = "à",
+        ["e'"] = "è", -- es. verbo essere
+        ["e`"] = "é", -- molto comune ma meno di 'è'
+        ["i'"] = "í",
+        ["o'"] = "ò",
+        ["o`"] = "ó", -- raro
+        ["u'"] = "ú",
+        --
+        -- Apparte la "É" le altre sono possibili solo in parole tutte maiuscolo
+        ["A'"] = "À",
+        ["E'"] = "È",
+        ["E`"] = "É",
+        ["I'"] = "Í",
+        ["O'"] = "Ò",
+        ["O`"] = "Ó",
+        ["U'"] = "Ú",
+      }) end,
+
     }
     apply_transform = function( str )
       for k = #pipeline, 1, -1 do
