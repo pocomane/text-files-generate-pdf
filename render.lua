@@ -290,7 +290,7 @@ local function expand_content(wrk, src, env, apply_transform)
       transform = transform,
       done = function() pipeline[#pipeline] = nil end,
 
-      acii_accented_vowel_for_italian = function() transform(".%f[%A]'", {
+      ascii_accented_vowel_for_italian = function() transform(".%f[%A]'", {
         --
         ["a'"] = "à",
         ["e'"] = "è", -- es. verbo essere
