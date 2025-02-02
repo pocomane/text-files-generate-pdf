@@ -1,53 +1,18 @@
-name: CI
-
+name: Make_All
 on: [push, pull_request, workflow_dispatch]
-
 jobs:
-
-  generate-pdf:
+  Make_All:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v2
+      - run: sudo apt-get install golang
+      - run: chmod ugo+x make.sh && ./make.sh
+      - run: echo "v0.1-rc" >> "$GITHUB_OUTPUT"
+        id: version_check
+      - uses: softprops/action-gh-release@v1
         with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Install Build Dependencies
-        run: |
-          sudo apt-get install lua5.3 weasyprint
-          sudo apt-get purge weasyprint
-
-      - name: Build
-        run: |
-          PATH="./:$PATH" PYTHONPATH="./WeasyPrint-60.2:./pydyf-0.8.0:$PYTHONPATH" lua ./make.lua
-
-      - name: Store artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: "OUTs" #destination
-          path: | #source
+          tag_name: ${{steps.version_check.outputs.TAG_NAME}}
+          files: |
             ./build/*.pdf
             ./build/*.html
-
-  release:
-    if: github.event_name == 'push'
-    needs: [generate-pdf]
-    runs-on: ubuntu-22.04
-
-    steps:
-
-      - name: Download artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: OUTs #source
-          path: release #destination
-
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          body: Automatic Release (${{ github.event.head_commit.timestamp }})
-          tag_name: release.${{ github.sha }}
-          files: release/*
 
