@@ -281,8 +281,18 @@ local function expand_content(wrk, src, env, apply_transform)
     local function transform( a, b )
       pipeline[1+#pipeline] = {a,b}
     end
+    local function readcommand(cmd)
+      local f, e = io.popen(cmd, 'r')
+      if e then
+        return nil, 'error running "'..tostring(cmd)..'" - '..tostring(e)
+      end
+      local c = f:read('a')
+      f:close()
+      return c
+    end
     env = {
       log = log,
+      readcommand = readcommand,
       include = function(src, pat) return expand_content(wrk, src, env, apply_transform) end,
       mdtohtml = function(src) return demarkdown(src) end,
       date = os.date('!%Y-%m-%d %H:%M:%SZ'),
