@@ -216,8 +216,6 @@ end
 -----------------------------------------------------------------------------------
 -- render
 
-local CACHEDIR = "./cache/"
-local BUILDDIR = "./build/"
 local SCRIPTDIR = arg[0]:gsub('[^/]*$', '')
 
 package.path = package.path .. ';'..SCRIPTDIR..'?.lua'
@@ -285,7 +283,8 @@ local function expand_content(wrk, src, env, apply_transform)
     local function readcommand(cmd)
       local f, e = io.popen(cmd, 'r')
       if e then
-        return nil, 'error running "'..tostring(cmd)..'" - '..tostring(e)
+        log('ERROR - while running the command: "'..tostring(cmd))
+        error(e)
       end
       local c = f:read('a')
       f:close()
@@ -296,6 +295,7 @@ local function expand_content(wrk, src, env, apply_transform)
       opt[k] = v
     end
     env = {
+      pairs = pairs, ipairs = ipairs,
       log = log,
       option = opt,
       readcommand = readcommand,
@@ -346,13 +346,13 @@ local function expand_content(wrk, src, env, apply_transform)
   local content = get_content(wrk, src)
   local generate, err = templua(content, apply_transform)
   if err ~= nil then
-    log('ERROR - while compiling template '..src..': '..err)
-    return content
+    log('ERROR - while compiling template '..src)
+    error(err)
   end
   local expanded, err = generate(env)
   if err ~= nil then
-    log('ERROR - while expanding '..src..': '..err)
-    return content
+    log('ERROR - while expanding '..src)
+    error(err)
   end
   return expanded
 end
@@ -366,11 +366,16 @@ end
 -----------------------------------------------------------------------------------
 -- pdfize
 
-local function render_file(wrk, dst)
-  exec("mkdir -p '"..BUILDDIR.."'")
-  local basename = dst:gsub("^.*/",""):gsub('%.[Tt][m][p][l]$','')
-  local outpath = BUILDDIR..basename..'.html'
-  render_output(wrk, dst, outpath)
+local function render_file(wrk, src)
+  local basename = src:gsub("^.*/",""):gsub('%.[Tt][m][p][l]$','')
+  local outpath = src..'.out'
+  if wrk.env.out then
+    local basename = src:match("[^/\\]*$"):gsub("%.[^%.]*$", "")
+    outpath = wrk.env.out:gsub("%%", basename)
+  end
+  log("generating", outpath)
+  exec("mkdir -p '"..outpath:gsub("[^/\\]*$", "").."'")
+  render_output(wrk, src, outpath)
   local x = wrk.output[outpath]
   local f, e = io.open(outpath, 'wb')
   if e then error(e) end
