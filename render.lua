@@ -274,6 +274,50 @@ local function add_front_page(wrk, x)
          .. x
 end
 
+local function find_last_match(str, pat)
+  local begin, finish = 1, 0
+  while finish + 1 < #str do
+    local a, b = str:find(pat, finish + 1)
+    if not b then break end
+    begin, finish = a, b
+  end
+  if finish == 0 then return nil, nil end
+  return begin, finish
+end
+
+local function split_content_meta(content)
+  local metascript = ""
+  local position = content:find('%-%-*[ \t\n\r]*$')
+  if position and position > 1 then
+    content = content:sub(1, position-1)
+    local begin, finish = find_last_match(content, '[\n\r]%-+[\n\r]')
+    if begin then
+      metascript = content:sub(finish + 1)
+      content = content:sub(1, begin-1)
+    end
+  end
+  return content, metascript
+end
+
+local function run_meta(env, content)
+  local _, metascript = split_content_meta(content)
+  if metascript ~= "" then
+    local fun, err = load( metascript, 'meta_script', 't', env)
+    if err then
+      log('ERROR - while compiling metascript '..metascript)
+      error(err)
+    end
+    return (function(ok, arg, ...)
+      if ok then
+        return arg, ...
+      else
+        log('ERROR - while executing metascript '..metascript)
+        error(arg)
+      end
+    end)(pcall(fun))
+  end
+end
+
 local function expand_content(wrk, src, env, apply_transform)
   if env == nil then
     local pipeline = {}
@@ -305,26 +349,7 @@ local function expand_content(wrk, src, env, apply_transform)
       clear = function() pipeline = {} end,
       transform = transform,
       done = function() pipeline[#pipeline] = nil end,
-
-      ascii_accented_vowel_for_italian = function() transform(".%f[%A]'", {
-        --
-        ["a'"] = "à",
-        ["e'"] = "è", -- es. verbo essere
-        ["e`"] = "é", -- molto comune ma meno di 'è'
-        ["i'"] = "í",
-        ["o'"] = "ò",
-        ["o`"] = "ó", -- raro
-        ["u'"] = "ú",
-        --
-        -- Apparte la "É" le altre sono possibili solo in parole tutte maiuscolo
-        ["A'"] = "À",
-        ["E'"] = "È",
-        ["E`"] = "É",
-        ["I'"] = "Í",
-        ["O'"] = "Ò",
-        ["O`"] = "Ó",
-        ["U'"] = "Ú",
-      }) end,
+      getmeta = function(path) return run_meta(env, get_content(wrk, path)) end,
 
     }
     apply_transform = function( str )
@@ -344,6 +369,7 @@ local function expand_content(wrk, src, env, apply_transform)
     end
   end
   local content = get_content(wrk, src)
+  content = split_content_meta(content)
   local generate, err = templua(content, apply_transform)
   if err ~= nil then
     log('ERROR - while compiling template '..src)
