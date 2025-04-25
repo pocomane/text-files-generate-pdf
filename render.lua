@@ -231,6 +231,7 @@ end
 
 local function log(...)
   print(os.date('![%H:%M:%S ')..tostring(os.clock())..']', ...)
+  io.flush()
 end
 
 local function load_file(path)
@@ -290,8 +291,13 @@ local function expand_content(wrk, src, env, apply_transform)
       f:close()
       return c
     end
+    local opt = {}
+    for k, v in pairs(wrk.env) do
+      opt[k] = v
+    end
     env = {
       log = log,
+      option = opt,
       readcommand = readcommand,
       include = function(src, pat) return expand_content(wrk, src, env, apply_transform) end,
       mdtohtml = function(src) return demarkdown(src) end,
@@ -351,10 +357,8 @@ local function expand_content(wrk, src, env, apply_transform)
   return expanded
 end
 
-local function render_html(wrk, src, dst)
-  log('- expanding template')
+local function render_output(wrk, src, dst)
   local content = expand_content(wrk, src)
-  log('- postprocessing html')
   content = tweak_example_block(content)
   wrk.output[dst] = content
 end
@@ -362,26 +366,44 @@ end
 -----------------------------------------------------------------------------------
 -- pdfize
 
-local function make_pdfs(wrk, dst)
+local function render_file(wrk, dst)
   exec("mkdir -p '"..BUILDDIR.."'")
-  log('-----------------')
-  log('- working on '..dst)
   local basename = dst:gsub("^.*/",""):gsub('%.[Tt][m][p][l]$','')
-  local htmlout = BUILDDIR..basename..'.html'
-  render_html(wrk, dst, htmlout)
-  local x = wrk.output[htmlout]
-  local f, e = io.open(htmlout, 'wb')
+  local outpath = BUILDDIR..basename..'.html'
+  render_output(wrk, dst, outpath)
+  local x = wrk.output[outpath]
+  local f, e = io.open(outpath, 'wb')
   if e then error(e) end
   f:write(x)
   f:close()
 end
 
+local stop_parsing_option = false
+--
+local function check_command_flag(env, opt)
+  if stop_parsing_option or opt:sub(1,2) == "--" then
+    if opt == "--" then
+      stop_parsing_option = true
+      return false
+    end
+    local k, v = opt:match("%-%-([^=]*)(.*)")
+    if v ~= "" then
+      v = v:sub(2)
+    end
+    env[k] = v
+    return true
+  end
+  return false
+end
+
 local function main(arg)
-  io.write("Working in folder ") io.flush()
+  log("Working in folder:")
   exec("pwd")
-  local wrk = {output={},file_cache={}}
+  local wrk = {output={},file_cache={},env={}}
   for k = 1, #arg do
-    make_pdfs(wrk, arg[k])
+    if not check_command_flag(wrk.env, arg[k]) then
+      render_file(wrk, arg[k])
+    end
   end
 end
 
