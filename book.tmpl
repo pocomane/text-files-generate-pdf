@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+    <title>Book Example</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type="text/css">
+
+    @font-face {
+      font-family: "Gentium";
+      src: url(data:font/ttf;base64,@{readcommand('cat gentium.ttf | base64 | tr -d "\n"')}) format("truetype");
+    }
+
+    @media print {
+
+      @page {
+        size: A5;
+        margin: 20mm 20mm 20mm 20mm;
+        border: 0;
+        padding: 0;
+      }
+
+      body {
+        margin: 0;
+        border: 0;
+        padding: 0;
+        border: 0;
+      }
+    }
+
+    @media screen {
+
+      body {
+        position: absolute;
+        top: 20mm;
+        left: 20mm;
+        width: 148mm;
+        border: 0;
+        padding: 0;
+      }
+    }
+    
+    body {
+      font-family: "Gentium";
+    }
+
+    .content {
+      max-width: 148mm;
+      border: 0;
+      padding: 0;
+    }
+    </style>    
+</head>
+<body><div class="content">
+
+
+@{{ transform(".*", mdtohtml) }}
+@{ include"Readme.md" }
+@{{ clear() }}
+
+</div></body>
+</html>
