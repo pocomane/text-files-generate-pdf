@@ -41,15 +41,77 @@
       }
     }
     
-    body {
-      font-family: "Gentium";
+    :root {
+      --FS:  3.2mm; /* default font size */
+      --LH:  4.6mm; /* default line height */
+      --FS1: 4.0mm; /* bigger font size n.1 */
+      --FL1: 4.6mm; /* first letter of the bigger font size n.2 */
     }
 
     .content {
       max-width: 148mm;
       border: 0;
       padding: 0;
+      font-family: Gentium;
+      font-size: var(--FS);
+      line-height: var(--LH);
     }
+
+    em {
+      font-weight: normal;
+      text-transform: uppercase;
+      font-size: var(--FS);
+      margin-left: 1mm;
+      margin-right: 1mm;
+    }
+
+    strong {
+      font-weight: normal;
+      text-transform: uppercase;
+      font-size: var(--FS);
+      margin-left: 1mm;
+      margin-right: 1mm;
+    }
+
+    h1 {
+      text-align: center;
+      text-transform: uppercase;
+      font-size: var(--FS1);
+      border-top: 1pt solid;
+      padding-top: 2mm;
+      page-break-before: always;
+    }
+    h1:first-of-type {
+      page-break-before: avoid;
+    }
+    h1:first-letter {
+      font-size: var(--FL1);
+    }
+
+    h2 {
+      text-transform: uppercase;
+      font-size: var(--FS1);
+    }
+    h2:first-letter {
+      font-size: var(--FL1);
+    }
+
+    h3 {
+      text-transform: uppercase;
+      font-size: var(--FS1);
+    }
+    h3:first-letter {
+      font-size: var(--FL1);
+    }
+
+    h4 {
+      text-transform: uppercase;
+      font-size: var(--FS1);
+    }
+    h4:first-letter {
+      font-size: var(--FL1);
+    }
+
     </style>    
 </head>
 <body><div class="content">
