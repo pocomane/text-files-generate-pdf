@@ -22,8 +22,10 @@ make_all(){
     rm "$TMPFIL"
   fi
   set -x
-  lua5.4 "$BUILDSUBDIR"/"$GUTENCONTENTDIR"/guten.lua --out=./"$BUILDSUBDIR"/book.html book.tmpl 
-  weasyprint ./"$BUILDSUBDIR"/book.html ./"$BUILDSUBDIR"/book.pdf
+  for FILE in $(ls *.md) ; do
+    lua5.4 "$BUILDSUBDIR"/"$GUTENCONTENTDIR"/guten.lua --content="$FILE" --out=./"$BUILDSUBDIR"/"${FILE%.*}"-book.html book.tmpl
+    weasyprint ./"$BUILDSUBDIR"/"${FILE%.*}"-book.html ./"$BUILDSUBDIR"/"${FILE%.*}"-book.pdf
+  done
 }
 
 # #############################################################################
